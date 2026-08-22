@@ -1,6 +1,6 @@
 # 🤖 Portfolio RAG Chatbot
 
-A production-ready RAG (Retrieval-Augmented Generation) chatbot that answers questions about your portfolio, services, case studies, and experience — using your own documents.
+A production-ready RAG (Retrieval-Augmented Generation) chatbot that answers questions about your portfolio, services, case studies, and experience - using your own documents.
 
 [![Deploy on Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com)
 
@@ -27,14 +27,14 @@ A production-ready RAG (Retrieval-Augmented Generation) chatbot that answers que
 
 ## ✨ Features
 
-- 📄 **Multi-Format Document Support** — Drop `.md`, `.txt`, `.pdf`, `.docx`, `.csv`, `.pptx`, `.html` files into the `data/` folder
-- 🔍 **Semantic Search** — Powered by Supabase pgvector for fast, accurate retrieval
-- 🤖 **AI-Powered Answers** — Uses Google Gemini 1.5 Flash for grounded, context-aware responses
-- 📎 **Source Citations** — Every answer includes the source document and relevance score
-- 💬 **Chat Interface** — Clean, conversational UI built with Streamlit
-- 🔒 **Secure by Design** — Your data stays in your control
-- 🆓 **100% Free** — No credit card required for local development or Render deployment
-- ☁️ **Easy Deployment** — Deploy to Render, Streamlit Cloud, or any Python hosting
+- 📄 **Multi-Format Document Support** - Drop `.md`, `.txt`, `.pdf`, `.docx`, `.csv`, `.pptx`, `.html` files into the `data/` folder
+- 🔍 **Semantic Search** - Powered by Supabase pgvector for fast, accurate retrieval
+- 🤖 **AI-Powered Answers** - Uses Google Gemini 1.5 Flash for grounded, context-aware responses
+- 📎 **Source Citations** - Every answer includes the source document and relevance score
+- 💬 **Chat Interface** - Clean, conversational UI built with Streamlit
+- 🔒 **Secure by Design** - Your data stays in your control
+- 🆓 **100% Free** - No credit card required for local development or Render deployment
+- ☁️ **Easy Deployment** - Deploy to Render, Streamlit Cloud, or any Python hosting
 
 ---
 
@@ -71,11 +71,9 @@ Before you begin, you'll need:
 Open your terminal (Command Prompt, PowerShell, or Git Bash) and run:
 
 ```bash
-git clone https://github.com/yourusername/portfolio-rag-chatbot.git
+git clone https://github.com/integra8ai/portfolio-rag-chatbot.git
 cd portfolio-rag-chatbot
 ```
-
-> ⚠️ **Replace `yourusername` with the actual GitHub username** where this repository is hosted.
 
 ### Step 2: Create and Activate Virtual Environment
 
@@ -84,7 +82,7 @@ python -m venv venv
 venv\Scripts\activate
 ```
 
-You'll see `(venv)` appear in your terminal — this means it's active.
+You'll see `(venv)` appear in your terminal - this means it's active.
 
 ### Step 3: Install Dependencies
 
@@ -163,7 +161,7 @@ data/
 
 ---
 
-## 🏃 Running the App
+## Running the App
 
 ```bash
 streamlit run app.py
@@ -183,7 +181,7 @@ Open your browser and go to: `http://localhost:8501`
 
 ---
 
-## ☁️ Deploy on Render (Free)
+## Deploy on Render (Free)
 
 ### Step 1: Push to GitHub
 
@@ -224,7 +222,7 @@ Click **"Create Web Service"**. Your app will be live at `https://your-app-name.
 
 ---
 
-## 🔍 How It Works
+## How It Works
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -259,7 +257,7 @@ Click **"Create Web Service"**. Your app will be live at `https://your-app-name.
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### ❌ "module 'google.generativeai' has no attribute 'embedding_models'"
 
@@ -315,7 +313,7 @@ streamlit run app.py --server.port $PORT --server.address 0.0.0.0
 
 ---
 
-## 🎨 Customization
+## Customization
 
 ### Change Branding
 
@@ -323,7 +321,7 @@ Edit `app.py`:
 
 ```python
 st.set_page_config(
-    page_title="Your Brand — Portfolio Chatbot",
+    page_title="Your Brand - Portfolio Chatbot",
     page_icon="🚀",
     layout="wide"
 )
@@ -351,7 +349,7 @@ extensions = {
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 portfolio-rag-chatbot/
@@ -369,7 +367,7 @@ portfolio-rag-chatbot/
 
 ---
 
-## 📝 Requirements (`requirements.txt`)
+## Requirements (`requirements.txt`)
 
 ```txt
 streamlit>=1.28.0
@@ -387,7 +385,7 @@ pandas>=2.0.0
 
 ---
 
-## 🔒 Security Best Practices
+## Security Best Practices
 
 | Best Practice | Why |
 | --------------- | ----- |
@@ -398,13 +396,13 @@ pandas>=2.0.0
 
 ---
 
-## 📄 License
+## License
 
 MIT — Use it for anything, commercial or personal.
 
 ---
 
-## 🙋 Support
+## Support
 
 - **Issues:** Open an issue on GitHub
 - **Questions:** DM me for consulting inquiries
@@ -412,7 +410,7 @@ MIT — Use it for anything, commercial or personal.
 
 ---
 
-## 🎯 Quick Commands Reference
+## Quick Commands Reference
 
 | Task | Command |
 | ------ | --------- |
