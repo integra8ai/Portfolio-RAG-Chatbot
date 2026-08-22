@@ -1,0 +1,115 @@
+# Case Studies
+
+## 🏥 Law Firm – Secure Document Intelligence System
+
+**Challenge:** A mid-sized law firm had 5,000+ case documents. Associates were spending 45 minutes per search just to find relevant precedents.
+
+**Solution:** I built a private, secure RAG system using:
+
+- LlamaIndex for ingestion
+- SplatRag for SOTA retrieval (0.78 nDCG@10)
+- AWS Bedrock Knowledge Bases with Guardrails for PII redaction
+- VPC self-hosting — data never leaves their control
+
+**Results:**
+
+- ⏱️ 45 min → 2 min (95% faster)
+- ✅ Zero data breaches in 6 months
+- 📈 95% associate satisfaction
+
+---
+
+## 🏭 Manufacturing – Vision-Enabled Maintenance Agent
+
+**Challenge:** Field engineers were spending hours diagnosing equipment issues, and errors were costly.
+
+**Solution:** I built a vision-enabled AI agent using:
+
+- LiveKit Agents with video track subscription
+- Gemini Live for multimodal understanding
+- LlamaIndex for maintenance docs RAG
+- VPC self-hosting for complete data security
+
+**Results:**
+
+- ⚡ 40% faster issue resolution
+- 📉 30% reduction in maintenance errors
+- 💰 $45,000/year saved in downtime costs
+
+---
+
+## 📞 HVAC – 24/7 AI Voice Agent
+
+**Challenge:** 70% of after-hours emergency calls went to voicemail. Customers frustrated. Revenue leaking.
+
+**Solution:** I built a voice agent using:
+
+- LiveKit Agents for real-time voice
+- OpenAI Realtime API for natural conversation
+- active-call (self-hosted SIP gateway) for phone integration
+- AWS Bedrock for secure LLM access
+
+**Results:**
+
+- 📞 70% reduction in missed calls
+- ⏱️ 15+ hours/week saved by dispatchers
+- 😊 95% customer satisfaction
+- 💰 ROI in under 60 days
+
+---
+
+## 💼 B2B SaaS – Multi-Agent Lead Generation System
+
+**Challenge:** 5 SDRs spending 40+ hours/week on manual lead research and outreach. Not selling. Just typing.
+
+**Solution:** I built a multi-agent system using:
+
+- CrewAI for role-based agents
+- LangGraph for state management
+- Researcher Agent → finds leads
+- Writer Agent → drafts emails (95% accuracy)
+- Critic Agent → reviews tone & spam triggers
+
+**Results:**
+
+- 📈 3x qualified leads
+- ⏱️ 20+ hours/week saved per SDR
+- 📧 133% increase in email open rates
+
+---
+
+## 🏢 Real Estate – AI Property Management Agent
+
+**Challenge:** Property managers spending hours on tenant inquiries, maintenance scheduling, and document management.
+
+**Solution:** I built a multi-agent system that:
+
+- Automates tenant communication via WhatsApp and email
+- Schedules maintenance work orders
+- Manages lease documents and contracts
+- Provides instant property information to tenants
+
+**Results:**
+
+- ⏱️ 15+ hours/week saved
+- 📈 95% tenant satisfaction
+- 🔄 50% faster maintenance response times
+
+---
+
+## 🏛️ Legal – AI Contract Analysis Agent
+
+**Challenge:** Legal team spending hours reviewing contracts for compliance and risk.
+
+**Solution:** I built a secure RAG system that:
+
+- Ingests and analyzes contracts
+- Extracts key clauses, dates, and parties
+- Identifies compliance risks automatically
+- Provides summaries with cited sources
+
+**Results:**
+
+- ⏱️ 80% faster contract review
+- 📈 95% accuracy in risk detection
+- 🔒 Full VPC self-hosting — data never leaves control
