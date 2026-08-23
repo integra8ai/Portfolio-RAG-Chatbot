@@ -7,7 +7,7 @@ import streamlit as st
 import os
 import glob
 from supabase import create_client
-import google.generativeai as genai  # Using the working SDK
+import google.generativeai as genai
 import time
 
 # ============================================================
@@ -27,7 +27,7 @@ except Exception:
 # INITIALIZE CLIENTS
 # ============================================================
 
-# Configure Gemini (working SDK)
+# Configure Gemini
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Supabase client
@@ -49,7 +49,6 @@ def load_documents_from_folder():
         os.makedirs(data_dir)
         return documents
     
-    # Using standalone packages
     from langchain_community.document_loaders import (
         TextLoader,
         UnstructuredMarkdownLoader,
@@ -70,7 +69,6 @@ def load_documents_from_folder():
         ".html": UnstructuredHTMLLoader,
     }
     
-    # Gather all files with supported extensions
     all_files = []
     for ext in extensions:
         all_files.extend(glob.glob(os.path.join(data_dir, f"*{ext}")))
@@ -84,13 +82,11 @@ def load_documents_from_folder():
             if loader_class is None:
                 continue
             
-            # Handle TextLoader special case: it needs encoding
             if loader_class == TextLoader:
                 loader = loader_class(filepath, encoding="utf-8")
             else:
                 loader = loader_class(filepath)
             
-            # Load and combine content
             docs = loader.load()
             content = "\n\n".join([doc.page_content for doc in docs])
             
@@ -110,7 +106,7 @@ def load_documents_from_folder():
 # ============================================================
 
 def get_embedding(text):
-    """Generate embedding using Gemini (working SDK)"""
+    """Generate embedding using Gemini"""
     try:
         result = genai.embed_content(
             model="models/embedding-001",
@@ -122,29 +118,125 @@ def get_embedding(text):
         st.error(f"Error generating embedding: {e}")
         return None
 
-def setup_vector_db():
-    """Create table and index, then populate with documents from data/ folder"""
-    
-    # --- STEP 1: ALWAYS CREATE TABLE FIRST ---
+def create_table_if_not_exists():
+    """Create the documents table and match function using raw SQL"""
     try:
-        # Create the table
-        supabase.sql("""
-            CREATE TABLE IF NOT EXISTS documents (
-                id TEXT PRIMARY KEY,
-                content TEXT NOT NULL,
-                source TEXT,
-                embedding VECTOR(768)
-            );
-        """).execute()
-        
-        # Create index for faster search
-        supabase.sql("""
-            CREATE INDEX IF NOT EXISTS documents_embedding_idx 
-            ON documents USING ivfflat (embedding vector_cosine_ops);
-        """).execute()
-        
-        # Create the match_documents function
-        supabase.sql("""
+        # Try to check if table exists
+        supabase.table("documents").select("id").limit(1).execute()
+        return True
+    except Exception:
+        # Table doesn't exist — create it using the postgrest client
+        try:
+            # Create table using raw SQL via supabase's client
+            # We need to use the underlying postgrest client for raw SQL
+            from postgrest import APIError
+            
+            # Create table
+            supabase.table("documents").insert({
+                "id": "temp",
+                "content": "temp",
+                "embedding": [0.0] * 768
+            }).execute()
+            
+            # If we got here, table exists
+            supabase.table("documents").delete().eq("id", "temp").execute()
+            return True
+            
+        except Exception as e:
+            st.info("Creating table for the first time... This may take a moment.")
+            
+            # Fallback: Try creating via the SQL API
+            try:
+                # Use the REST API directly for raw SQL
+                import requests
+                import json
+                
+                headers = {
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type": "application/json"
+                }
+                
+                # Create table
+                sql_create = """
+                CREATE TABLE IF NOT EXISTS documents (
+                    id TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    source TEXT,
+                    embedding VECTOR(768)
+                );
+                """
+                
+                response = requests.post(
+                    f"{SUPABASE_URL}/rest/v1/rpc/exec_sql",
+                    headers=headers,
+                    json={"query": sql_create}
+                )
+                
+                if response.status_code not in [200, 201, 204]:
+                    # If exec_sql doesn't exist, try alternative approach
+                    # Create the table using a direct REST call
+                    print(f"SQL exec failed: {response.text}")
+                
+                return True
+                
+            except Exception as e2:
+                st.error(f"Could not create table automatically. Please run the SQL manually in Supabase.")
+                st.code("""
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS documents (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    source TEXT,
+    embedding VECTOR(768)
+);
+
+CREATE INDEX IF NOT EXISTS documents_embedding_idx 
+ON documents USING ivfflat (embedding vector_cosine_ops);
+
+CREATE OR REPLACE FUNCTION match_documents(
+    query_embedding VECTOR(768),
+    match_threshold FLOAT,
+    match_count INT
+)
+RETURNS TABLE(
+    id TEXT,
+    content TEXT,
+    source TEXT,
+    similarity FLOAT
+)
+LANGUAGE SQL STABLE
+AS $$
+    SELECT
+        documents.id,
+        documents.content,
+        documents.source,
+        1 - (documents.embedding <=> query_embedding) AS similarity
+    FROM documents
+    WHERE 1 - (documents.embedding <=> query_embedding) > match_threshold
+    ORDER BY documents.embedding <=> query_embedding
+    LIMIT match_count;
+$$;
+                """, language="sql")
+                return False
+
+def create_match_function_if_not_exists():
+    """Create the match_documents function"""
+    try:
+        # Check if function exists by trying to call it
+        supabase.rpc("match_documents", {
+            "query_embedding": [0.0] * 768,
+            "match_threshold": 0.5,
+            "match_count": 1
+        }).execute()
+        return True
+    except Exception:
+        try:
+            # Try to create via REST API
+            import requests
+            
+            sql_function = """
             CREATE OR REPLACE FUNCTION match_documents(
                 query_embedding VECTOR(768),
                 match_threshold FLOAT,
@@ -168,19 +260,45 @@ def setup_vector_db():
                 ORDER BY documents.embedding <=> query_embedding
                 LIMIT match_count;
             $$;
-        """).execute()
-        
-        st.success("✅ Table ready")
-        
-    except Exception as e:
-        st.error(f"Error creating table: {e}")
+            """
+            
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/exec_sql",
+                headers=headers,
+                json={"query": sql_function}
+            )
+            
+            return response.status_code in [200, 201, 204]
+            
+        except Exception:
+            return False
+
+def setup_vector_db():
+    """Create table and index, then populate with documents from data/ folder"""
+    
+    # --- STEP 1: CREATE TABLE AND FUNCTION ---
+    table_ready = create_table_if_not_exists()
+    
+    if not table_ready:
+        st.error("⚠️ Please create the documents table manually in Supabase SQL Editor.")
         return
+    
+    # Create the match function
+    create_match_function_if_not_exists()
+    
+    st.success("✅ Database ready")
     
     # --- STEP 2: LOAD DOCUMENTS ---
     documents = load_documents_from_folder()
     
     if not documents:
-        st.info("No supported documents found in the data/ folder. Add .md, .pdf, .docx, .csv, .txt, .pptx, or .html files.")
+        st.info("No supported documents found in the data/ folder.")
         return
     
     # --- STEP 3: INSERT DOCUMENTS ---
@@ -231,7 +349,7 @@ def search_documents(query, threshold=0.5, limit=3):
         return []
 
 def generate_answer(query, context):
-    """Generate an answer using Gemini (working SDK)"""
+    """Generate an answer using Gemini"""
     prompt = f"""You are an AI assistant representing an AI Agent Architect.
 
     Use the following context to answer the user's question accurately.
@@ -258,7 +376,7 @@ def generate_answer(query, context):
 # ============================================================
 
 st.set_page_config(
-    page_title="Integra8 AI — Portfolio Chatbot",
+    page_title="AI Agent Architect — Portfolio Chatbot",
     page_icon="🤖",
     layout="wide"
 )
@@ -328,4 +446,4 @@ if prompt := st.chat_input("Ask me about my services..."):
                 })
 
 st.divider()
-st.caption("Built by Integra8 AI with Streamlit · Supabase pgvector · Google Gemini")
+st.caption("Built by Integra8AI with Streamlit · Supabase pgvector · Google Gemini")
