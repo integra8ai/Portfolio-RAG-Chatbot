@@ -7,7 +7,8 @@ import streamlit as st
 import os
 import glob
 from supabase import create_client
-import google.generativeai as genai
+from google import genai  # NEW: google-genai SDK (replaces google.generativeai)
+import time
 
 # ============================================================
 # CONFIGURATION — Read from environment or secrets
@@ -25,8 +26,11 @@ except Exception:
 # ============================================================
 # INITIALIZE CLIENTS
 # ============================================================
-genai.configure(api_key=GOOGLE_API_KEY)
-chat_model = genai.GenerativeModel("models/gemini-1.5-flash")
+
+# NEW: Create a single client object (google-genai SDK)
+client = genai.Client(api_key=GOOGLE_API_KEY)
+
+# Supabase client
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ============================================================
@@ -45,8 +49,7 @@ def load_documents_from_folder():
         os.makedirs(data_dir)
         return documents
     
-    # Define supported extensions and their loaders
-    # We import loaders inside the function to avoid unnecessary imports if the folder is empty
+    # NEW: Using standalone packages instead of langchain-community
     from langchain_community.document_loaders import (
         TextLoader,
         UnstructuredMarkdownLoader,
@@ -107,14 +110,14 @@ def load_documents_from_folder():
 # ============================================================
 
 def get_embedding(text):
-    """Generate embedding using Gemini's embed_content"""
+    """Generate embedding using the new google-genai SDK"""
     try:
-        result = genai.embed_content(
-            model="models/embedding-001",
-            content=text,
-            task_type="retrieval_document"
+        # NEW: Use client.models.embed_content (google-genai SDK)
+        result = client.models.embed_content(
+            model="models/text-embedding-004",
+            contents=[text]
         )
-        return result["embedding"]
+        return result.embeddings[0].values
     except Exception as e:
         st.error(f"Error generating embedding: {e}")
         return None
@@ -228,7 +231,7 @@ def search_documents(query, threshold=0.5, limit=3):
         return []
 
 def generate_answer(query, context):
-    """Generate an answer using Gemini with context"""
+    """Generate an answer using the new google-genai SDK"""
     prompt = f"""You are an AI assistant representing an AI Agent Architect.
 
     Use the following context to answer the user's question accurately.
@@ -243,7 +246,11 @@ def generate_answer(query, context):
     Answer:"""
     
     try:
-        response = chat_model.generate_content(prompt)
+        # NEW: Use client.models.generate_content (google-genai SDK)
+        response = client.models.generate_content(
+            model="models/gemini-2.0-flash",
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         st.error(f"Error generating answer: {e}")
@@ -254,7 +261,7 @@ def generate_answer(query, context):
 # ============================================================
 
 st.set_page_config(
-    page_title="AI Agent Architect — Portfolio Chatbot",
+    page_title="Integra8 AI — Portfolio Chatbot",
     page_icon="🤖",
     layout="wide"
 )
@@ -324,4 +331,4 @@ if prompt := st.chat_input("Ask me about my services..."):
                 })
 
 st.divider()
-st.caption("Built by Integra8 AI with Streamlit · Supabase pgvector · Google Gemini · Multi-format support")
+st.caption("Built by Integra8AI with Streamlit · Supabase pgvector · Google GenAI SDK")
