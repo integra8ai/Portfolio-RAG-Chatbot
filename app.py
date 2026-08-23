@@ -122,40 +122,73 @@ def get_embedding(text):
 def setup_vector_db():
     """Create table and index, then populate with documents from data/ folder"""
     
-    # Create table if it doesn't exist
+    # --- STEP 1: ALWAYS CREATE TABLE FIRST ---
     try:
-        supabase.table("documents").select("id").limit(1).execute()
-    except Exception:
-        try:
-            supabase.sql("""
-                CREATE TABLE IF NOT EXISTS documents (
-                    id TEXT PRIMARY KEY,
-                    content TEXT NOT NULL,
-                    source TEXT,
-                    embedding VECTOR(768)
-                );
-            """).execute()
-            
-            supabase.sql("""
-                CREATE INDEX IF NOT EXISTS documents_embedding_idx 
-                ON documents USING ivfflat (embedding vector_cosine_ops);
-            """).execute()
-        except Exception:
-            pass
+        # Create the table
+        supabase.sql("""
+            CREATE TABLE IF NOT EXISTS documents (
+                id TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                source TEXT,
+                embedding VECTOR(768)
+            );
+        """).execute()
+        
+        # Create index for faster search
+        supabase.sql("""
+            CREATE INDEX IF NOT EXISTS documents_embedding_idx 
+            ON documents USING ivfflat (embedding vector_cosine_ops);
+        """).execute()
+        
+        # Create the match_documents function
+        supabase.sql("""
+            CREATE OR REPLACE FUNCTION match_documents(
+                query_embedding VECTOR(768),
+                match_threshold FLOAT,
+                match_count INT
+            )
+            RETURNS TABLE(
+                id TEXT,
+                content TEXT,
+                source TEXT,
+                similarity FLOAT
+            )
+            LANGUAGE SQL STABLE
+            AS $$
+                SELECT
+                    documents.id,
+                    documents.content,
+                    documents.source,
+                    1 - (documents.embedding <=> query_embedding) AS similarity
+                FROM documents
+                WHERE 1 - (documents.embedding <=> query_embedding) > match_threshold
+                ORDER BY documents.embedding <=> query_embedding
+                LIMIT match_count;
+            $$;
+        """).execute()
+        
+        st.success("✅ Table ready")
+        
+    except Exception as e:
+        st.error(f"Error creating table: {e}")
+        return
     
-    # Load documents from data/ folder
+    # --- STEP 2: LOAD DOCUMENTS ---
     documents = load_documents_from_folder()
     
     if not documents:
         st.info("No supported documents found in the data/ folder. Add .md, .pdf, .docx, .csv, .txt, .pptx, or .html files.")
         return
     
-    # Insert documents with embeddings
+    # --- STEP 3: INSERT DOCUMENTS ---
+    loaded_count = 0
     for doc in documents:
         try:
+            # Check if document already exists
             existing = supabase.table("documents").select("id").eq("id", doc["id"]).execute()
             if existing.data:
                 continue
+            
             embedding = get_embedding(doc["content"])
             if embedding:
                 supabase.table("documents").insert({
@@ -164,10 +197,15 @@ def setup_vector_db():
                     "source": doc["source"],
                     "embedding": embedding
                 }).execute()
+                loaded_count += 1
+                
         except Exception as e:
-            st.error(f"Error inserting document {doc['id']}: {e}")
+            st.warning(f"Could not load {doc.get('source', doc['id'])}: {e}")
     
-    st.success(f"✅ Loaded {len(documents)} documents from data/ folder")
+    if loaded_count > 0:
+        st.success(f"✅ Loaded {loaded_count} documents from data/ folder")
+    else:
+        st.info("📁 Documents already loaded or no new documents to add")
 
 def search_documents(query, threshold=0.5, limit=3):
     """Semantic search using pgvector"""
