@@ -161,13 +161,19 @@ data/
 
 ---
 
-## Running the App
+## Running the App locally
 
 ```bash
 streamlit run app.py
 ```
 
 Open your browser and go to: `http://localhost:8501`
+
+## Running the App on render
+
+```bash
+streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+```
 
 ### Sample Questions to Test
 
