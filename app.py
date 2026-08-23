@@ -7,7 +7,7 @@ import streamlit as st
 import os
 import glob
 from supabase import create_client
-from google import genai  # NEW: google-genai SDK (replaces google.generativeai)
+import google.generativeai as genai  # Using the working SDK
 import time
 
 # ============================================================
@@ -27,8 +27,8 @@ except Exception:
 # INITIALIZE CLIENTS
 # ============================================================
 
-# NEW: Create a single client object (google-genai SDK)
-client = genai.Client(api_key=GOOGLE_API_KEY)
+# Configure Gemini (working SDK)
+genai.configure(api_key=GOOGLE_API_KEY)
 
 # Supabase client
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -49,7 +49,7 @@ def load_documents_from_folder():
         os.makedirs(data_dir)
         return documents
     
-    # NEW: Using standalone packages instead of langchain-community
+    # Using standalone packages
     from langchain_community.document_loaders import (
         TextLoader,
         UnstructuredMarkdownLoader,
@@ -110,14 +110,14 @@ def load_documents_from_folder():
 # ============================================================
 
 def get_embedding(text):
-    """Generate embedding using the new google-genai SDK"""
+    """Generate embedding using Gemini (working SDK)"""
     try:
-        # NEW: Use client.models.embed_content (google-genai SDK)
-        result = client.models.embed_content(
-            model="models/text-embedding-004",
-            contents=[text]
+        result = genai.embed_content(
+            model="models/embedding-001",
+            content=text,
+            task_type="retrieval_document"
         )
-        return result.embeddings[0].values
+        return result["embedding"]
     except Exception as e:
         st.error(f"Error generating embedding: {e}")
         return None
@@ -231,7 +231,7 @@ def search_documents(query, threshold=0.5, limit=3):
         return []
 
 def generate_answer(query, context):
-    """Generate an answer using the new google-genai SDK"""
+    """Generate an answer using Gemini (working SDK)"""
     prompt = f"""You are an AI assistant representing an AI Agent Architect.
 
     Use the following context to answer the user's question accurately.
@@ -246,11 +246,8 @@ def generate_answer(query, context):
     Answer:"""
     
     try:
-        # NEW: Use client.models.generate_content (google-genai SDK)
-        response = client.models.generate_content(
-            model="models/gemini-2.0-flash",
-            contents=prompt
-        )
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
+        response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         st.error(f"Error generating answer: {e}")
@@ -296,7 +293,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "assistant",
-            "content": "👋 Hello! I'm an AI assistant representing an AI Agent Architect. I can answer questions about my services, case studies, technical approach, and experience.\n\n**What would you like to know?**"
+            "content": "👋 Hello! I'm an AI assistant representing Integra8 AI. I can answer questions about my services, case studies, technical approach, and experience.\n\n**What would you like to know?**"
         }
     ]
 
@@ -331,4 +328,4 @@ if prompt := st.chat_input("Ask me about my services..."):
                 })
 
 st.divider()
-st.caption("Built by Integra8AI with Streamlit · Supabase pgvector · Google GenAI SDK")
+st.caption("Built by Integra8 AI with Streamlit · Supabase pgvector · Google Gemini")
