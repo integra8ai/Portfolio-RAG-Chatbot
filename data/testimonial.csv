@@ -1,25 +1,6 @@
-# Testimonials
-
-> "They didn't just build a voice agent — they wired it into our CRM, our calendar, and our 5 other tools. It's not a demo, it's a production workflow our team actually relies on."
->
-> — **HVAC Operations Director**
-
-> "Our legal associates can find case documents in 2 minutes instead of 45. The security was non-negotiable, and they delivered."
->
-> — **Law Firm Partner**
-
-> "The multi-agent system they built handles 3x the leads without hiring more SDRs. That's real ROI."
->
-> — **B2B SaaS VP of Sales**
-
-> "Huge value. They were able to identify and solve our biggest bottleneck and turn it into our biggest strength."
->
-> — **Founder, B2B SaaS Company**
-
-> "Very knowledgeable and professional. Highly recommended for any AI automation needs."
->
-> — **CTO, FinTech Startup**
-
-> "Phenomenal process, great communicator, and delivered exactly what we needed."
->
-> — **Operations Director, HVAC Company**
+"""They didn't just build a voice agent - they wired it into our CRM, our calendar, and our 5 other tools. It's not a demo, it's a production workflow our team actually relies on."" ",**HVAC Operations Director** 
+"""Our legal associates can find case documents in 2 minutes instead of 45. The security was non-negotiable, and they delivered."" ",**Law Firm Partner** 
+"""The multi-agent system they built handles 3x the leads without hiring more SDRs. That's real ROI."" ",**B2B SaaS VP of Sales** 
+"""Huge value. They were able to identify and solve our biggest bottleneck and turn it into our biggest strength."" ","**Founder, B2B SaaS Company** "
+"""Very knowledgeable and professional. Highly recommended for any AI automation needs."" ","**CTO, FinTech Startup** "
+"""Phenomenal process, great communicator, and delivered exactly what we needed."" ","**Operations Director, HVAC Company** "
