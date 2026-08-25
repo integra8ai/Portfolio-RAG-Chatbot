@@ -118,73 +118,50 @@ def get_embedding(text):
         st.error(f"Error generating embedding: {e}")
         return None
 
-def create_table_if_not_exists():
-    """Create the documents table and match function using raw SQL"""
+def check_table_exists():
+    """Check if the documents table exists in Supabase"""
     try:
-        # Try to check if table exists
         supabase.table("documents").select("id").limit(1).execute()
         return True
     except Exception:
-        # Table doesn't exist — create it using the postgrest client
-        try:
-            # Create table using raw SQL via supabase's client
-            # We need to use the underlying postgrest client for raw SQL
-            from postgrest import APIError
-            
-            # Create table
-            supabase.table("documents").insert({
-                "id": "temp",
-                "content": "temp",
-                "embedding": [0.0] * 768
-            }).execute()
-            
-            # If we got here, table exists
-            supabase.table("documents").delete().eq("id", "temp").execute()
-            return True
-            
-        except Exception as e:
-            st.info("Creating table for the first time... This may take a moment.")
-            
-            # Fallback: Try creating via the SQL API
-            try:
-                # Use the REST API directly for raw SQL
-                import requests
-                import json
-                
-                headers = {
-                    "apikey": SUPABASE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_KEY}",
-                    "Content-Type": "application/json"
-                }
-                
-                # Create table
-                sql_create = """
-                CREATE TABLE IF NOT EXISTS documents (
-                    id TEXT PRIMARY KEY,
-                    content TEXT NOT NULL,
-                    source TEXT,
-                    embedding VECTOR(768)
-                );
-                """
-                
-                response = requests.post(
-                    f"{SUPABASE_URL}/rest/v1/rpc/exec_sql",
-                    headers=headers,
-                    json={"query": sql_create}
-                )
-                
-                if response.status_code not in [200, 201, 204]:
-                    # If exec_sql doesn't exist, try alternative approach
-                    # Create the table using a direct REST call
-                    print(f"SQL exec failed: {response.text}")
-                
-                return True
-                
-            except Exception as e2:
-                st.error(f"Could not create table automatically. Please run the SQL manually in Supabase.")
-                st.code("""
+        return False
+
+def check_match_function_exists():
+    """Check if the match_documents RPC function exists in Supabase"""
+    try:
+        supabase.rpc("match_documents", {
+            "query_embedding": [0.0] * 768,
+            "match_threshold": 0.5,
+            "match_count": 1
+        }).execute()
+        return True
+    except Exception:
+        return False
+
+def setup_vector_db():
+    """Verify database setup and load new documents from the data/ folder"""
+    
+    table_ready = check_table_exists()
+    function_ready = check_match_function_exists()
+    
+    if not table_ready or not function_ready:
+        st.error("⚠️ Supabase Vector Database Setup Required")
+        st.markdown("""
+        The application requires a `documents` table and a `match_documents` database function to perform semantic search. 
+        Because your Supabase keys do not have permissions to modify schemas directly, you must run the SQL manually.
+        
+        ### 🚀 How to Fix:
+        1. Go to your [Supabase Dashboard](https://supabase.com).
+        2. Select your project and click on the **SQL Editor** tab in the left sidebar.
+        3. Click **New Query**, copy the SQL code block below, paste it, and click **Run**.
+        4. Once the query runs successfully, reload this Streamlit page!
+        """)
+        
+        st.code("""
+-- 1. Enable the pgvector extension (adds support for vector similarity search)
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- 2. Create the documents table to store documents and their embeddings
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
     content TEXT NOT NULL,
@@ -192,9 +169,11 @@ CREATE TABLE IF NOT EXISTS documents (
     embedding VECTOR(768)
 );
 
+-- 3. Create a spatial index for faster similarity searches
 CREATE INDEX IF NOT EXISTS documents_embedding_idx 
 ON documents USING ivfflat (embedding vector_cosine_ops);
 
+-- 4. Create the match_documents function for semantic search queries
 CREATE OR REPLACE FUNCTION match_documents(
     query_embedding VECTOR(768),
     match_threshold FLOAT,
@@ -218,90 +197,20 @@ AS $$
     ORDER BY documents.embedding <=> query_embedding
     LIMIT match_count;
 $$;
-                """, language="sql")
-                return False
-
-def create_match_function_if_not_exists():
-    """Create the match_documents function"""
-    try:
-        # Check if function exists by trying to call it
-        supabase.rpc("match_documents", {
-            "query_embedding": [0.0] * 768,
-            "match_threshold": 0.5,
-            "match_count": 1
-        }).execute()
-        return True
-    except Exception:
-        try:
-            # Try to create via REST API
-            import requests
-            
-            sql_function = """
-            CREATE OR REPLACE FUNCTION match_documents(
-                query_embedding VECTOR(768),
-                match_threshold FLOAT,
-                match_count INT
-            )
-            RETURNS TABLE(
-                id TEXT,
-                content TEXT,
-                source TEXT,
-                similarity FLOAT
-            )
-            LANGUAGE SQL STABLE
-            AS $$
-                SELECT
-                    documents.id,
-                    documents.content,
-                    documents.source,
-                    1 - (documents.embedding <=> query_embedding) AS similarity
-                FROM documents
-                WHERE 1 - (documents.embedding <=> query_embedding) > match_threshold
-                ORDER BY documents.embedding <=> query_embedding
-                LIMIT match_count;
-            $$;
-            """
-            
-            headers = {
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            response = requests.post(
-                f"{SUPABASE_URL}/rest/v1/rpc/exec_sql",
-                headers=headers,
-                json={"query": sql_function}
-            )
-            
-            return response.status_code in [200, 201, 204]
-            
-        except Exception:
-            return False
-
-def setup_vector_db():
-    """Create table and index, then populate with documents from data/ folder"""
-    
-    # --- STEP 1: CREATE TABLE AND FUNCTION ---
-    table_ready = create_table_if_not_exists()
-    
-    if not table_ready:
-        st.error("⚠️ Please create the documents table manually in Supabase SQL Editor.")
+        """, language="sql")
+        
+        st.warning("🔄 Waiting for database schema setup. Reload this page after running the SQL script in Supabase.")
+        st.stop()
         return
     
-    # Create the match function
-    create_match_function_if_not_exists()
-    
-    st.success("✅ Database ready")
-    
-    # --- STEP 2: LOAD DOCUMENTS ---
+    # --- LOAD DOCUMENTS ---
     documents = load_documents_from_folder()
     
     if not documents:
         st.info("No supported documents found in the data/ folder.")
         return
     
-    # --- STEP 3: INSERT DOCUMENTS ---
+    # --- INSERT DOCUMENTS ---
     loaded_count = 0
     for doc in documents:
         try:
@@ -324,7 +233,7 @@ def setup_vector_db():
             st.warning(f"Could not load {doc.get('source', doc['id'])}: {e}")
     
     if loaded_count > 0:
-        st.success(f"✅ Loaded {loaded_count} documents from data/ folder")
+        st.success(f"✅ Loaded {loaded_count} new documents from data/ folder")
     else:
         st.info("📁 Documents already loaded or no new documents to add")
 

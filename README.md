@@ -98,13 +98,51 @@ pip install -r requirements.txt
 
 1. Go to [supabase.com](https://supabase.com) and create a free account
 2. Create a new project
-3. In the **SQL Editor**, run this query:
+3. In the **SQL Editor**, click **New Query**, paste and run this script to configure the database schema (enables `vector` extension, creates the `documents` table, spatial index, and match function):
 
 ```sql
+-- 1. Enable the pgvector extension (adds support for vector similarity search)
 CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 2. Create the documents table to store documents and their embeddings
+CREATE TABLE IF NOT EXISTS documents (
+    id TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    source TEXT,
+    embedding VECTOR(768)
+);
+
+-- 3. Create a spatial index for faster similarity searches
+CREATE INDEX IF NOT EXISTS documents_embedding_idx 
+ON documents USING ivfflat (embedding vector_cosine_ops);
+
+-- 4. Create the match_documents function for semantic search queries
+CREATE OR REPLACE FUNCTION match_documents(
+    query_embedding VECTOR(768),
+    match_threshold FLOAT,
+    match_count INT
+)
+RETURNS TABLE(
+    id TEXT,
+    content TEXT,
+    source TEXT,
+    similarity FLOAT
+)
+LANGUAGE SQL STABLE
+AS $$
+    SELECT
+        documents.id,
+        documents.content,
+        documents.source,
+        1 - (documents.embedding <=> query_embedding) AS similarity
+    FROM documents
+    WHERE 1 - (documents.embedding <=> query_embedding) > match_threshold
+    ORDER BY documents.embedding <=> query_embedding
+    LIMIT match_count;
+$$;
 ```
 
-1. Go to **Settings** → **API** and copy:
+4. Go to **Settings** → **API** and copy:
    - `Project URL`
    - `anon public` key
 
@@ -273,9 +311,9 @@ Click **"Create Web Service"**. Your app will be live at `https://your-app-name.
 pip install --upgrade google-generativeai
 ```
 
-### ❌ "Relation 'documents' does not exist"
+### ❌ "Relation 'documents' does not exist" or `PGRST205` ("Could not find the table 'public.documents' in the schema cache")
 
-**Fix:** The app creates the table automatically on first run. Ensure your Supabase credentials are correct.
+**Fix:** This occurs because the database schema has not been configured in Supabase. Copy the SQL script located in the [Set Up Supabase](#step-1-set-up-supabase) configuration section, paste and run it in the Supabase Dashboard **SQL Editor**. Once executed successfully, reload your application.
 
 ### ❌ "Error loading PDF: No module named 'pypdf'"
 
