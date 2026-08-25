@@ -118,37 +118,61 @@ def get_embedding(text):
         st.error(f"Error generating embedding: {e}")
         return None
 
-def check_table_exists():
-    """Check if the documents table exists in Supabase"""
+def setup_vector_db():
+    """Verify database setup and load new documents from the data/ folder"""
+    
+    table_ready = False
+    table_error = None
     try:
         supabase.table("documents").select("id").limit(1).execute()
-        return True
-    except Exception:
-        return False
+        table_ready = True
+    except Exception as e:
+        table_error = str(e)
 
-def check_match_function_exists():
-    """Check if the match_documents RPC function exists in Supabase"""
+    function_ready = False
+    function_error = None
     try:
         supabase.rpc("match_documents", {
             "query_embedding": [0.0] * 768,
             "match_threshold": 0.5,
             "match_count": 1
         }).execute()
-        return True
-    except Exception:
-        return False
-
-def setup_vector_db():
-    """Verify database setup and load new documents from the data/ folder"""
-    
-    table_ready = check_table_exists()
-    function_ready = check_match_function_exists()
-    
+        function_ready = True
+    except Exception as e:
+        function_error = str(e)
+        
     if not table_ready or not function_ready:
+        # Check if the error is due to connection/authorization issues
+        errors_to_check = [table_error or "", function_error or ""]
+        is_connection_error = any(
+            any(k in err.lower() for k in ["api key", "jwt", "failed to resolve", "connection", "auth", "invalid key", "401", "403", "url", "invalid-apikey"])
+            for err in errors_to_check if err
+        )
+        
+        if is_connection_error:
+            st.error("⚠️ Supabase Connection or Authentication Error")
+            st.markdown(f"""
+            Could not connect to your Supabase project. This is usually due to invalid credentials, incorrect project URL, or missing environment configuration.
+            
+            **Authentication Details:**
+            - **Table Access Error:** `{table_error}`
+            - **Match Function Access Error:** `{function_error}`
+            
+            ### 🛠️ How to Fix:
+            1. Verify that your `SUPABASE_URL` and `SUPABASE_KEY` are correct.
+            2. If running locally, check your `.streamlit/secrets.toml` file.
+            3. If running on Render, check the **Environment Variables** under Settings.
+            """)
+            st.stop()
+            return
+
         st.error("⚠️ Supabase Vector Database Setup Required")
-        st.markdown("""
-        The application requires a `documents` table and a `match_documents` database function to perform semantic search. 
-        Because your Supabase keys do not have permissions to modify schemas directly, you must run the SQL manually.
+        st.markdown(f"""
+        The application requires a `documents` table and a `match_documents` database function to perform semantic search.
+        
+        **Database Schema Status:**
+        - Table Status: {"❌ Missing or inaccessible" if not table_ready else "✅ Ready"} (Error: `{table_error}`)
+        - Function Status: {"❌ Missing or inaccessible" if not function_ready else "✅ Ready"} (Error: `{function_error}`)
         
         ### 🚀 How to Fix:
         1. Go to your [Supabase Dashboard](https://supabase.com).
