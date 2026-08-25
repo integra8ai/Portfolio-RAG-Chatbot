@@ -119,147 +119,44 @@ def get_embedding(text):
         return None
 
 def setup_vector_db():
-    """Verify database setup and load new documents from the data/ folder"""
-    
-    table_ready = False
-    table_error = None
+    """Verify database connection and load documents from the data/ folder"""
     try:
-        supabase.table("documents").select("id").limit(1).execute()
-        table_ready = True
-    except Exception as e:
-        table_error = str(e)
-
-    function_ready = False
-    function_error = None
-    try:
-        supabase.rpc("match_documents", {
-            "query_embedding": [0.0] * 768,
-            "match_threshold": 0.5,
-            "match_count": 1
-        }).execute()
-        function_ready = True
-    except Exception as e:
-        function_error = str(e)
+        # Load local documents from data/ folder
+        documents = load_documents_from_folder()
         
-    if not table_ready or not function_ready:
-        # Check if the error is due to connection/authorization issues
-        errors_to_check = [table_error or "", function_error or ""]
-        is_connection_error = any(
-            any(k in err.lower() for k in ["api key", "jwt", "failed to resolve", "connection", "auth", "invalid key", "401", "403", "url", "invalid-apikey"])
-            for err in errors_to_check if err
-        )
-        
-        if is_connection_error:
-            st.error("⚠️ Supabase Connection or Authentication Error")
-            st.markdown(f"""
-            Could not connect to your Supabase project. This is usually due to invalid credentials, incorrect project URL, or missing environment configuration.
-            
-            **Authentication Details:**
-            - **Table Access Error:** `{table_error}`
-            - **Match Function Access Error:** `{function_error}`
-            
-            ### 🛠️ How to Fix:
-            1. Verify that your `SUPABASE_URL` and `SUPABASE_KEY` are correct.
-            2. If running locally, check your `.streamlit/secrets.toml` file.
-            3. If running on Render, check the **Environment Variables** under Settings.
-            """)
-            st.stop()
+        if not documents:
+            st.info("No supported documents found in the data/ folder.")
             return
-
-        st.error("⚠️ Supabase Vector Database Setup Required")
-        st.markdown(f"""
-        The application requires a `documents` table and a `match_documents` database function to perform semantic search.
         
-        **Database Schema Status:**
-        - Table Status: {"❌ Missing or inaccessible" if not table_ready else "✅ Ready"} (Error: `{table_error}`)
-        - Function Status: {"❌ Missing or inaccessible" if not function_ready else "✅ Ready"} (Error: `{function_error}`)
-        
-        ### 🚀 How to Fix:
-        1. Go to your [Supabase Dashboard](https://supabase.com).
-        2. Select your project and click on the **SQL Editor** tab in the left sidebar.
-        3. Click **New Query**, copy the SQL code block below, paste it, and click **Run**.
-        4. Once the query runs successfully, reload this Streamlit page!
-        """)
-        
-        st.code("""
--- 1. Enable the pgvector extension (adds support for vector similarity search)
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- 2. Create the documents table to store documents and their embeddings
-CREATE TABLE IF NOT EXISTS documents (
-    id TEXT PRIMARY KEY,
-    content TEXT NOT NULL,
-    source TEXT,
-    embedding VECTOR(768)
-);
-
--- 3. Create a spatial index for faster similarity searches
-CREATE INDEX IF NOT EXISTS documents_embedding_idx 
-ON documents USING ivfflat (embedding vector_cosine_ops);
-
--- 4. Create the match_documents function for semantic search queries
-CREATE OR REPLACE FUNCTION match_documents(
-    query_embedding VECTOR(768),
-    match_threshold FLOAT,
-    match_count INT
-)
-RETURNS TABLE(
-    id TEXT,
-    content TEXT,
-    source TEXT,
-    similarity FLOAT
-)
-LANGUAGE SQL STABLE
-AS $$
-    SELECT
-        documents.id,
-        documents.content,
-        documents.source,
-        1 - (documents.embedding <=> query_embedding) AS similarity
-    FROM documents
-    WHERE 1 - (documents.embedding <=> query_embedding) > match_threshold
-    ORDER BY documents.embedding <=> query_embedding
-    LIMIT match_count;
-$$;
-        """, language="sql")
-        
-        st.warning("🔄 Waiting for database schema setup. Reload this page after running the SQL script in Supabase.")
-        st.stop()
-        return
-    
-    # --- LOAD DOCUMENTS ---
-    documents = load_documents_from_folder()
-    
-    if not documents:
-        st.info("No supported documents found in the data/ folder.")
-        return
-    
-    # --- INSERT DOCUMENTS ---
-    loaded_count = 0
-    for doc in documents:
-        try:
-            # Check if document already exists
-            existing = supabase.table("documents").select("id").eq("id", doc["id"]).execute()
-            if existing.data:
-                continue
-            
-            embedding = get_embedding(doc["content"])
-            if embedding:
-                supabase.table("documents").insert({
-                    "id": doc["id"],
-                    "content": doc["content"],
-                    "source": doc["source"],
-                    "embedding": embedding
-                }).execute()
-                loaded_count += 1
+        # Insert any missing documents
+        loaded_count = 0
+        for doc in documents:
+            try:
+                # Check if document already exists in the database
+                existing = supabase.table("documents").select("id").eq("id", doc["id"]).execute()
+                if existing.data:
+                    continue
                 
-        except Exception as e:
-            st.warning(f"Could not load {doc.get('source', doc['id'])}: {e}")
-    
-    if loaded_count > 0:
-        st.success(f"✅ Loaded {loaded_count} new documents from data/ folder")
-    else:
-        st.info("📁 Documents already loaded or no new documents to add")
+                embedding = get_embedding(doc["content"])
+                if embedding:
+                    supabase.table("documents").insert({
+                        "id": doc["id"],
+                        "content": doc["content"],
+                        "source": doc["source"],
+                        "embedding": embedding
+                    }).execute()
+                    loaded_count += 1
+            except Exception as e:
+                # Log to terminal console for debugging, don't output stack trace in UI
+                print(f"Error loading {doc.get('source', doc['id'])}: {e}")
+        
+        if loaded_count > 0:
+            st.success(f"✅ Loaded {loaded_count} new documents from data/ folder")
+        else:
+            st.info("📁 Documents already loaded or no new documents to add")
+            
+    except Exception as e:
+        st.error(f"⚠️ Supabase database connection error: {e}")
 
 def search_documents(query, threshold=0.5, limit=3):
     """Semantic search using pgvector"""
